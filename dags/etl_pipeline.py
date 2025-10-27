@@ -38,7 +38,14 @@ with DAG (
         
     ## Step 2: Extract: Any API 
     
-    
+    extract = SimpleHttpOperator(
+        task_id = 'extract_apod', 
+        http_conn_id = 'nasa_api', ##! This is the connection id defined in Airflow
+        endpoint = 'planetary/apod', 
+        method= 'GET', 
+        data = {"api_key": "{{ conn.nasa_api.extra_dejson.api_key }}"}, 
+        response_filter = lambda response: response.jsoon()
+    )
     
     
     ## Step 3: Transform: Picking the info that I need to save
