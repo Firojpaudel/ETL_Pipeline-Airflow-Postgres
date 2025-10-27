@@ -1,15 +1,15 @@
 from airflow import DAG
-from airflow.providers.http.operators.http import SimpleHttpOperator
+from airflow.providers.http.operators.http import HttpOperator
 from airflow.decorators import task
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-from airflow.utils.dates import days_ago
+from datetime import datetime, timedelta
 import json 
 
 ## Now we define the DAG 
 
 with DAG (
     dag_id = "etl_learn_proj", 
-    start_date = days_ago(1), 
+    start_date = datetime.now() - timedelta(days=1), 
     schedule = "@daily", 
     catchup = False
 ) as dag:
@@ -38,13 +38,13 @@ with DAG (
         
     ## Step 2: Extract: Any API 
     
-    extract = SimpleHttpOperator(
+    extract = HttpOperator(
         task_id = 'extract_apod', 
         http_conn_id = 'nasa_api', ##! This is the connection id defined in Airflow
         endpoint = 'planetary/apod', 
         method= 'GET', 
         data = {"api_key": "{{ conn.nasa_api.extra_dejson.api_key }}"}, 
-        response_filter = lambda response: response.jsoon()
+        response_filter = lambda response: response.json()
     )
     
     
@@ -70,7 +70,7 @@ with DAG (
         #! then we insert the data to the table
         insert_query = """
         INSERT INTO apod_data (title, explanation, url, date, media_type)
-        VALUES (%s, %s, %s, %s);
+        VALUES (%s, %s, %s, %s, %s);
         """
 
         #! Then we execute the SQL query 
@@ -88,3 +88,7 @@ with DAG (
     
     
     ## Step 6: Define the task dependencies (final)
+    create_table() >> extract #E
+    api_response = extract.output
+    transformed_data = transform_data(api_response) #T
+    load_into_db(transformed_data) #L
