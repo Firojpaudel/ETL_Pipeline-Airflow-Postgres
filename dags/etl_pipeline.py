@@ -49,12 +49,38 @@ with DAG (
     
     
     ## Step 3: Transform: Picking the info that I need to save
-    
+    @task 
+    def transform_data(response):
+        apod_data = {
+            'title': response.get('title', ''), 
+            'explanation': response.get('explanation', ''),
+            'url': response.get('url', ''),
+            'date': response.get('date', ''),
+            'media_type': response.get('media_type', '')
+        }
+        return apod_data
     
     
     ## Step 4: Load: Into the Postgres SQL 
-    
-    
+    @task
+    def load_into_db(apod_data):
+        #! hook into the postgres
+        postgres_hook = PostgresHook(postgres_conn_id="my_postgres_conn")
+        
+        #! then we insert the data to the table
+        insert_query = """
+        INSERT INTO apod_data (title, explanation, url, date, media_type)
+        VALUES (%s, %s, %s, %s);
+        """
+
+        #! Then we execute the SQL query 
+        postgres_hook.run(insert_query, parameters=(
+            apod_data['title'],
+            apod_data['explanation'],
+            apod_data['url'],
+            apod_data['date'],
+            apod_data['media_type']
+        ))
     
     
     ## Step 5: Verify the dbViewer
